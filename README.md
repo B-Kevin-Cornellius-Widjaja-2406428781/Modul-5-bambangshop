@@ -77,6 +77,14 @@ This is the place for you to write reflections:
 ### Mandatory (Publisher) Reflections
 
 #### Reflection Publisher-1
+1. Melihat dari sisi kebutuhan saat ini, belum sepenuhnya diperlukan trait karena semua subscriber adalah Rocket instance yang menerima notifikasi melalui HTTP POST dengan perilaku yang sama. Dengan kata lain, hanya ada satu "tipe" subscriber, yaitu melalui endpoint HTTP. 
+
+Namun, menggunakan trait akan memberikan fleksibilitas lebih untuk pengembangan di masa depan, misalnya jika ingin menambahkan mekanisme notifikasi lain seperti email atau WebSocket. Dengan trait, kita bisa memiliki implementasi yang berbeda tanpa harus mengubah kode publisher, sesuai dengan prinsip desain Observer yang memisahkan publisher dari concrete observers.
+
+2. Dalam kasus ini, menggunakan Vec akan membuat operasi pencarian, penambahan, dan penghapusan menjadi tidak efisien karena harus melakukan iterasi untuk menemukan subscriber yang sesuai. Vec mencari key secara linear sehingga memiliki kompleksitas O(n), sedangkan DashMap menggunakan hash map yang memungkinkan pencarian, penambahan, dan penghapusan dalam waktu rata-rata O(1). Selain itu, DashMap sudah thread-safe, sehingga lebih aman digunakan dalam konteks aplikasi web yang mungkin memiliki banyak thread. DashMap juga secara otomatis memastikan bahwa setiap key (url) unik, sehingga tidak perlu melakukan pengecekan manual untuk mencegah duplikasi. Oleh karena itu, DashMap lebih cocok untuk kasus ini dibandingkan dengan Vec.
+
+
+3. Dua hal ini menyelesaikan masalah yang berbeda, yaitu Singleton memastikan hanya ada satu instance global, sedangkan DashMap menyediakan state bersama yang aman untuk thread. Kita membutuhkan keduanya: Singleton (melalui lazy_static!) untuk memastikan hanya ada satu koleksi SUBSCRIBERS, dan DashMap untuk memungkinkan akses read/write yang aman secara bersamaan dari banyak request handlers (threads), sehingga kita tidak perlu membuat thread-safe wrapper sendiri untuk koleksi tersebut (misalnya, menggunakan Mutex<HashMap<..>>). Hal ini penting agar aplikasi web kita dapat menangani banyak permintaan secara bersamaan dengan efisien dan tanpa masalah race condition.
 
 #### Reflection Publisher-2
 
