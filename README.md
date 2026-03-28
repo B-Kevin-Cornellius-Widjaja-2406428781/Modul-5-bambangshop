@@ -48,28 +48,28 @@ You can install Postman via this website: https://www.postman.com/downloads/
     (You might want to use `cargo check` if you only need to verify your work without running the app.)
 
 ## Mandatory Checklists (Publisher)
--   [ ] Clone https://gitlab.com/ichlaffterlalu/bambangshop to a new repository.
+-   [X] Clone https://gitlab.com/ichlaffterlalu/bambangshop to a new repository.
 -   **STAGE 1: Implement models and repositories**
-    -   [ ] Commit: `Create Subscriber model struct.`
-    -   [ ] Commit: `Create Notification model struct.`
-    -   [ ] Commit: `Create Subscriber database and Subscriber repository struct skeleton.`
-    -   [ ] Commit: `Implement add function in Subscriber repository.`
-    -   [ ] Commit: `Implement list_all function in Subscriber repository.`
-    -   [ ] Commit: `Implement delete function in Subscriber repository.`
-    -   [ ] Write answers of your learning module's "Reflection Publisher-1" questions in this README.
+    -   [X] Commit: `Create Subscriber model struct.`
+    -   [X] Commit: `Create Notification model struct.`
+    -   [X] Commit: `Create Subscriber database and Subscriber repository struct skeleton.`
+    -   [X] Commit: `Implement add function in Subscriber repository.`
+    -   [X] Commit: `Implement list_all function in Subscriber repository.`
+    -   [X] Commit: `Implement delete function in Subscriber repository.`
+    -   [X] Write answers of your learning module's "Reflection Publisher-1" questions in this README.
 -   **STAGE 2: Implement services and controllers**
-    -   [ ] Commit: `Create Notification service struct skeleton.`
-    -   [ ] Commit: `Implement subscribe function in Notification service.`
-    -   [ ] Commit: `Implement subscribe function in Notification controller.`
-    -   [ ] Commit: `Implement unsubscribe function in Notification service.`
-    -   [ ] Commit: `Implement unsubscribe function in Notification controller.`
-    -   [ ] Write answers of your learning module's "Reflection Publisher-2" questions in this README.
+    -   [X] Commit: `Create Notification service struct skeleton.`
+    -   [X] Commit: `Implement subscribe function in Notification service.`
+    -   [X] Commit: `Implement subscribe function in Notification controller.`
+    -   [X] Commit: `Implement unsubscribe function in Notification service.`
+    -   [X] Commit: `Implement unsubscribe function in Notification controller.`
+    -   [X] Write answers of your learning module's "Reflection Publisher-2" questions in this README.
 -   **STAGE 3: Implement notification mechanism**
-    -   [ ] Commit: `Implement update method in Subscriber model to send notification HTTP requests.`
-    -   [ ] Commit: `Implement notify function in Notification service to notify each Subscriber.`
-    -   [ ] Commit: `Implement publish function in Program service and Program controller.`
-    -   [ ] Commit: `Edit Product service methods to call notify after create/delete.`
-    -   [ ] Write answers of your learning module's "Reflection Publisher-3" questions in this README.
+    -   [X] Commit: `Implement update method in Subscriber model to send notification HTTP requests.`
+    -   [X] Commit: `Implement notify function in Notification service to notify each Subscriber.`
+    -   [X] Commit: `Implement publish function in Program service and Program controller.`
+    -   [X] Commit: `Edit Product service methods to call notify after create/delete.`
+    -   [X] Write answers of your learning module's "Reflection Publisher-3" questions in this README.
 
 ## Your Reflections
 This is the place for you to write reflections:
@@ -77,7 +77,25 @@ This is the place for you to write reflections:
 ### Mandatory (Publisher) Reflections
 
 #### Reflection Publisher-1
+1. Melihat dari sisi kebutuhan saat ini, belum sepenuhnya diperlukan trait karena semua subscriber adalah Rocket instance yang menerima notifikasi melalui HTTP POST dengan perilaku yang sama. Dengan kata lain, hanya ada satu "tipe" subscriber, yaitu melalui endpoint HTTP. 
+
+Namun, menggunakan trait akan memberikan fleksibilitas lebih untuk pengembangan di masa depan, misalnya jika ingin menambahkan mekanisme notifikasi lain seperti email atau WebSocket. Dengan trait, kita bisa memiliki implementasi yang berbeda tanpa harus mengubah kode publisher, sesuai dengan prinsip desain Observer yang memisahkan publisher dari concrete observers.
+
+2. Dalam kasus ini, menggunakan Vec akan membuat operasi pencarian, penambahan, dan penghapusan menjadi tidak efisien karena harus melakukan iterasi untuk menemukan subscriber yang sesuai. Vec mencari key secara linear sehingga memiliki kompleksitas O(n), sedangkan DashMap menggunakan hash map yang memungkinkan pencarian, penambahan, dan penghapusan dalam waktu rata-rata O(1). Selain itu, DashMap sudah thread-safe, sehingga lebih aman digunakan dalam konteks aplikasi web yang mungkin memiliki banyak thread. DashMap juga secara otomatis memastikan bahwa setiap key (url) unik, sehingga tidak perlu melakukan pengecekan manual untuk mencegah duplikasi. Oleh karena itu, DashMap lebih cocok untuk kasus ini dibandingkan dengan Vec.
+
+
+3. Dua hal ini menyelesaikan masalah yang berbeda, yaitu Singleton memastikan hanya ada satu instance global, sedangkan DashMap menyediakan state bersama yang aman untuk thread. Kita membutuhkan keduanya: Singleton (melalui lazy_static!) untuk memastikan hanya ada satu koleksi SUBSCRIBERS, dan DashMap untuk memungkinkan akses read/write yang aman secara bersamaan dari banyak request handlers (threads), sehingga kita tidak perlu membuat thread-safe wrapper sendiri untuk koleksi tersebut (misalnya, menggunakan Mutex<HashMap<..>>). Hal ini penting agar aplikasi web kita dapat menangani banyak permintaan secara bersamaan dengan efisien dan tanpa masalah race condition.
 
 #### Reflection Publisher-2
+1. Pemisahan ini merepresentasikan Single Responsibility Principle (SRP) dari prinsip SOLID dan konsep Hexagonal Architecture. Dalam MVC klasik, Model sering kali menjadi Fat Model karena menangani representasi data, aturan bisnis, dan interaksi database sekaligus. Model seharusnya murni berfokus pada struktur data dan logika bisnis inti yang spesifik untuk entitas tersebut. Model tidak boleh tahu menahu tentang database (SQL, NoSQL, dll). Repository bertanggung jawab penuh atas persistensi data. Layer ini mengabstraksi operasi database (CRUD). Jika suatu saat aplikasi bermigrasi dari PostgreSQL ke MongoDB, perubahan hanya terjadi di layer Repository tanpa menyentuh Model atau Service. Service bertindak sebagai orkestrator yang menangani business use case. Layer ini memanggil Repository untuk mengambil data (Model), menerapkan logika bisnis atau algoritma yang melibatkan beberapa Model sekaligus, lalu menyimpan kembali hasilnya melalui Repository. Pemisahan ini membuat kode menjadi loosely coupled, mudah di-maintain, dan sangat mudah untuk dilakukan Unit Testing (karena Repository dapat di-mock saat menguji Service).
+
+2. Jika kita memaksakan semua logika hanya dalam Model, kita akan menciptakan Tight Coupling (ketergantungan yang ketat) dan kompleksitas kode. Ketika sebuah `Program` mengubah status dan harus mengirimkan `Notification` untuk semua `Subscriber`, maka logika untuk mengelola daftar subscriber, membuat payload notifikasi, dan mengirimkannya harus berada di dalam Model `Program`. Hal ini akan membuat Model `Program` menjadi sangat besar (God Object) dan sulit untuk dipahami, diuji, atau di-maintain. Model `Program` kini memiliki dependensi langsung pada Model `Subscriber` dan `Notification`, sehingga setiap perubahan pada salah satu model dapat mempengaruhi yang lain, meningkatkan risiko bug dan membuat refactoring menjadi sulit. Selain itu, jika kita ingin menambahkan jenis notifikasi baru atau mekanisme pengiriman baru, kita harus mengubah Model `Program`, yang seharusnya tidak perlu tahu tentang detail implementasi notifikasi.
+
+3. Saya sudah cukup familiar dengan Postman, terutama untuk menguji REST API. Postman memudahkan saya untuk membuat dan mengelola koleksi endpoint, menyimpan environment variables, dan melakukan testing secara manual maupun otomatis. Fitur yang saya sukai adalah kemampuan untuk menyimpan response history, sehingga saya bisa dengan mudah melihat kembali hasil request sebelumnya. Fitur environment variables juga sangat membantu untuk mengelola konfigurasi yang berbeda (misalnya, development vs production) tanpa harus mengubah kode atau request secara manual. Saya yakin fitur-fitur ini akan sangat berguna untuk Group Project dan proyek software engineering lainnya di masa depan. Saya juga sangat suka compatibility Postman dengan cURL, sehingga saya bisa dengan mudah mengkonversi request yang saya buat di Postman ke dalam bentuk cURL command untuk digunakan di terminal atau script (ataupun sebaliknya). 
 
 #### Reflection Publisher-3
+1.  Dalam tutorial ini, kita menggunakan Push model dari Observer Pattern. Dalam model ini, publisher secara aktif mengirimkan notifikasi ke semua subscriber yang terdaftar setiap kali terjadi perubahan melalui HTTP POST request. Subscriber tidak perlu melakukan polling atau meminta data secara berkala, karena mereka akan menerima notifikasi secara otomatis ketika ada perubahan yang relevan.
+
+2. Jika sistem menggunakan Pull model, maka publisher hanya akan mengirimkan sinyal atau notifikasi bahwa ada perubahan, tanpa menyertakan data lengkapnya. Subscriber kemudian harus melakukan request terpisah untuk menarik data terbaru dari publisher. Keuntungan dari Pull model adalah mengurangi beban pada publisher karena tidak perlu mengirimkan data lengkap ke semua subscriber setiap kali terjadi perubahan. Namun, kerugiannya adalah meningkatkan kompleksitas pada sisi subscriber, karena mereka harus secara aktif memeriksa pembaruan dan melakukan request tambahan, yang dapat menyebabkan latensi dan overhead jaringan yang lebih tinggi. Selain itu, Pull model dapat menyebabkan masalah konsistensi data jika subscriber tidak segera menarik data terbaru setelah menerima notifikasi. Pull model juga menjaga Publisher tetap ringan, karena tidak perlu mengelola logika pengiriman data ke setiap subscriber, tetapi ini bisa menjadi beban tambahan bagi Subscriber yang harus menangani logika polling dan pengambilan data.
+
+3. Jika pengiriman notifikasi dilakukan secara sinkron tanpa multi-threading, aplikasi akan mengalami blocking setiap kali harus mengirim notifikasi ke subscriber. Ini berarti bahwa selama proses pengiriman notifikasi, aplikasi tidak dapat menangani request lain, yang akan menyebabkan penurunan performa dan pengalaman pengguna yang buruk. Jika ada banyak subscriber atau jika salah satu subscriber lambat merespons, maka seluruh aplikasi bisa menjadi tidak responsif. Dengan menggunakan multi-threading, kita dapat mengirim notifikasi secara asinkron, sehingga aplikasi tetap dapat menangani request lain tanpa terganggu oleh proses pengiriman notifikasi.
